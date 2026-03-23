@@ -1,0 +1,196 @@
+<template>
+  <div class="checkbox-filter-wrap">
+    <div class="search-box">
+      <input
+        v-model="search"
+        type="text"
+        placeholder="搜尋..."
+        class="filter-search-input"
+      />
+    </div>
+    <div class="checkbox-list">
+      <label class="checkbox-item select-all">
+        <input
+          type="checkbox"
+          :checked="isAllSelected"
+          :indeterminate.prop="isIndeterminate"
+          @change="toggleAll"
+        />
+        <span>(全選)</span>
+      </label>
+      <label
+        v-for="val in filteredValues"
+        :key="val"
+        class="checkbox-item"
+      >
+        <input
+          type="checkbox"
+          :value="val"
+          :checked="selected.includes(val)"
+          @change="toggleItem(val)"
+        />
+        <span>{{ displayMap ? (displayMap[val] || val) : val }}</span>
+      </label>
+    </div>
+    <div class="filter-actions">
+      <button class="btn-filter-apply" @click="applyFilter">套用</button>
+      <button class="btn-filter-clear" @click="clearFilter">清除</button>
+    </div>
+  </div>
+</template>
+
+<script>
+export default {
+  name: "CheckboxFilter",
+  props: {
+    field: { type: String, required: true },
+    allValues: { type: Array, default: () => [] },
+    displayMap: { type: Object, default: null },
+    currentFilter: { type: Object, default: null },
+  },
+  emits: ["filterchange"],
+  data() {
+    return {
+      selected: [...(this.allValues || [])],
+      search: "",
+    };
+  },
+  computed: {
+    filteredValues() {
+      if (!this.search) return this.allValues;
+      const s = this.search.toLowerCase();
+      return this.allValues.filter((v) =>
+        String(this.displayMap ? this.displayMap[v] || v : v)
+          .toLowerCase()
+          .includes(s)
+      );
+    },
+    isAllSelected() {
+      return this.filteredValues.every((v) => this.selected.includes(v));
+    },
+    isIndeterminate() {
+      const c = this.filteredValues.filter((v) => this.selected.includes(v)).length;
+      return c > 0 && c < this.filteredValues.length;
+    },
+  },
+  methods: {
+    toggleItem(val) {
+      if (this.selected.includes(val)) {
+        this.selected = this.selected.filter((v) => v !== val);
+      } else {
+        this.selected = [...this.selected, val];
+      }
+    },
+    toggleAll() {
+      if (this.isAllSelected) {
+        this.selected = this.selected.filter(
+          (v) => !this.filteredValues.includes(v)
+        );
+      } else {
+        const toAdd = this.filteredValues.filter(
+          (v) => !this.selected.includes(v)
+        );
+        this.selected = [...this.selected, ...toAdd];
+      }
+    },
+    applyFilter() {
+      // 若全選或未選 → 不過濾
+      if (
+        this.selected.length === 0 ||
+        this.selected.length === this.allValues.length
+      ) {
+        this.$emit("filterchange", []);
+        return;
+      }
+      const filters = this.selected.map((v) => ({
+        field: this.field,
+        operator: "eq",
+        value: v,
+      }));
+      this.$emit("filterchange", filters);
+    },
+    clearFilter() {
+      this.selected = [...this.allValues];
+      this.search = "";
+      this.$emit("filterchange", []);
+    },
+  },
+};
+</script>
+
+<style scoped>
+.checkbox-filter-wrap {
+  padding: 8px;
+  min-width: 160px;
+  max-width: 220px;
+  background: #fff;
+  border-radius: 6px;
+}
+.search-box {
+  margin-bottom: 6px;
+}
+.filter-search-input {
+  width: 100%;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  outline: none;
+  box-sizing: border-box;
+}
+.filter-search-input:focus {
+  border-color: #0d6efd;
+}
+.checkbox-list {
+  max-height: 160px;
+  overflow-y: auto;
+  margin-bottom: 6px;
+}
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px;
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.checkbox-item:hover {
+  background: #f0f4ff;
+}
+.select-all {
+  border-bottom: 1px solid #dee2e6;
+  margin-bottom: 4px;
+  padding-bottom: 4px;
+  font-weight: 600;
+  color: #495057;
+}
+.filter-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  border-top: 1px solid #dee2e6;
+  padding-top: 6px;
+}
+.btn-filter-apply {
+  background: #0d6efd;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.btn-filter-apply:hover { background: #0a58ca; }
+.btn-filter-clear {
+  background: #fff;
+  color: #6c757d;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.btn-filter-clear:hover { background: #f8f9fa; }
+</style>
