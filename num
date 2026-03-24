@@ -1,0 +1,113 @@
+<template>
+  <div class="numeric-filter-wrap">
+    <div class="filter-row">
+      <label class="filter-label">最小值</label>
+      <k-numeric-textbox
+        v-model="minVal"
+        :placeholder="'最小值'"
+        :min="0"
+        :format="'n2'"
+        :spinners="false"
+        style="width: 100%"
+      />
+    </div>
+    <div class="filter-row">
+      <label class="filter-label">最大值</label>
+      <k-numeric-textbox
+        v-model="maxVal"
+        :placeholder="'最大值'"
+        :min="0"
+        :format="'n2'"
+        :spinners="false"
+        style="width: 100%"
+      />
+    </div>
+    <div class="filter-actions">
+      <button class="btn-filter-apply" @click="applyFilter">套用</button>
+      <button class="btn-filter-clear" @click="clearFilter">清除</button>
+    </div>
+  </div>
+</template>
+
+<script>
+import { NumericTextBox as KNumericTextbox } from "@progress/kendo-vue-inputs";
+
+export default {
+  name: "NumericRangeFilter",
+  components: { KNumericTextbox },
+  props: {
+    field: { type: String, required: true },
+    currentFilter: { type: Object, default: null },
+  },
+  emits: ["filterchange"],
+  data() {
+    return {
+      minVal: null,
+      maxVal: null,
+    };
+  },
+  methods: {
+    applyFilter() {
+      const filters = [];
+      if (this.minVal !== null && this.minVal !== undefined) {
+        filters.push({ field: this.field, operator: "gte", value: this.minVal });
+      }
+      if (this.maxVal !== null && this.maxVal !== undefined) {
+        filters.push({ field: this.field, operator: "lte", value: this.maxVal });
+      }
+      this.$emit("filterchange", filters);
+    },
+    clearFilter() {
+      this.minVal = null;
+      this.maxVal = null;
+      this.$emit("filterchange", []);
+    },
+  },
+};
+</script>
+
+<style scoped>
+.numeric-filter-wrap {
+  padding: 8px;
+  min-width: 180px;
+  background: #fff;
+  border-radius: 6px;
+}
+.filter-row {
+  margin-bottom: 8px;
+}
+.filter-label {
+  display: block;
+  font-size: 11px;
+  color: #6c757d;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+.filter-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  border-top: 1px solid #dee2e6;
+  padding-top: 6px;
+}
+.btn-filter-apply {
+  background: #0d6efd;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.btn-filter-apply:hover { background: #0a58ca; }
+.btn-filter-clear {
+  background: #fff;
+  color: #6c757d;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.btn-filter-clear:hover { background: #f8f9fa; }
+</style>
