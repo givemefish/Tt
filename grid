@@ -1,0 +1,518 @@
+<template>
+  <div class="trade-grid-wrapper" :style="{ height: gridHeight + 'px' }">
+    <!-- 標題列 -->
+    <div class="grid-toolbar">
+      <div class="toolbar-left">
+        <SvgIcon :icon="gridIcon" class="toolbar-icon" />
+        <h2 class="grid-title">委託單管理</h2>
+        <span class="record-count">共 {{ displayData.length }} 筆</span>
+      </div>
+      <div class="toolbar-right">
+        <k-button theme-color="primary" fill-mode="outline" @click="resetFilters">
+          <SvgIcon :icon="filterClearIcon" />
+          清除篩選
+        </k-button>
+      </div>
+    </div>
+
+    <!-- Kendo Grid -->
+    <Grid
+      ref="gridRef"
+      :style="{ height: (gridHeight - 56) + 'px' }"
+      :data-items="displayData"
+      :columns="columns"
+      :sortable="true"
+      :sort="sort"
+      :filterable="true"
+      :filter="filter"
+      :column-menu="false"
+      :resizable="true"
+      :reorderable="true"
+      :scrollable="'scrollable'"
+      @sortchange="onSortChange"
+      @filterchange="onFilterChange"
+    >
+      <!-- 操作欄 Cell -->
+      <template v-slot:actionCell="{ props }">
+        <td class="action-cell">
+          <k-button
+            :size="'small'"
+            theme-color="info"
+            fill-mode="solid"
+            :title="'檢視'"
+            @click="openViewWindow(props.dataItem)"
+          >
+            <SvgIcon :icon="eyeIcon" />
+          </k-button>
+          <k-button
+            :size="'small'"
+            theme-color="error"
+            fill-mode="solid"
+            :title="'刪除'"
+            @click="openDeleteWindow(props.dataItem)"
+            style="margin-left: 6px"
+          >
+            <SvgIcon :icon="trashIcon" />
+          </k-button>
+        </td>
+      </template>
+
+      <!-- 買賣方向 Cell -->
+      <template v-slot:sideCell="{ props }">
+        <td style="text-align: center">
+          <span :class="['side-badge', props.dataItem.Side === 'Buy' ? 'buy' : 'sell']">
+            {{ props.dataItem.Side === "Buy" ? "買入" : "賣出" }}
+          </span>
+        </td>
+      </template>
+
+      <!-- 均價 Cell -->
+      <template v-slot:priceCell="{ props }">
+        <td style="text-align: right">
+          {{ props.dataItem.AvgPrice.toLocaleString("zh-TW", { minimumFractionDigits: 2 }) }}
+        </td>
+      </template>
+
+      <!-- 成交量 Cell -->
+      <template v-slot:qtyCell="{ props }">
+        <td style="text-align: right">
+          {{ props.dataItem.Qty.toLocaleString("zh-TW") }}
+        </td>
+      </template>
+
+      <!-- 交易日期 Cell -->
+      <template v-slot:dateCell="{ props }">
+        <td style="text-align: center">
+          {{ formatDate(props.dataItem.TrdDate) }}
+        </td>
+      </template>
+
+      <!-- ===== 自訂 Filter Cell ===== -->
+
+      <!-- Checkbox Filter: AccNo -->
+      <template v-slot:accNoFilter="{ props }">
+        <CheckboxFilter
+          :field="'AccNo'"
+          :all-values="uniqueValues('AccNo')"
+          :current-filter="props.filter"
+          @filterchange="(f) => onColumnFilterChange('AccNo', f)"
+        />
+      </template>
+
+      <!-- Checkbox Filter: AccName -->
+      <template v-slot:accNameFilter="{ props }">
+        <CheckboxFilter
+          :field="'AccName'"
+          :all-values="uniqueValues('AccName')"
+          :current-filter="props.filter"
+          @filterchange="(f) => onColumnFilterChange('AccName', f)"
+        />
+      </template>
+
+      <!-- Checkbox Filter: Market -->
+      <template v-slot:marketFilter="{ props }">
+        <CheckboxFilter
+          :field="'Market'"
+          :all-values="uniqueValues('Market')"
+          :current-filter="props.filter"
+          @filterchange="(f) => onColumnFilterChange('Market', f)"
+        />
+      </template>
+
+      <!-- Checkbox Filter: StkNo -->
+      <template v-slot:stkNoFilter="{ props }">
+        <CheckboxFilter
+          :field="'StkNo'"
+          :all-values="uniqueValues('StkNo')"
+          :current-filter="props.filter"
+          @filterchange="(f) => onColumnFilterChange('StkNo', f)"
+        />
+      </template>
+
+      <!-- Checkbox Filter: TrdCurr -->
+      <template v-slot:trdCurrFilter="{ props }">
+        <CheckboxFilter
+          :field="'TrdCurr'"
+          :all-values="uniqueValues('TrdCurr')"
+          :current-filter="props.filter"
+          @filterchange="(f) => onColumnFilterChange('TrdCurr', f)"
+        />
+      </template>
+
+      <!-- Checkbox Filter: SettCurr -->
+      <template v-slot:settCurrFilter="{ props }">
+        <CheckboxFilter
+          :field="'SettCurr'"
+          :all-values="uniqueValues('SettCurr')"
+          :current-filter="props.filter"
+          @filterchange="(f) => onColumnFilterChange('SettCurr', f)"
+        />
+      </template>
+
+      <!-- Side Filter (Checkbox) -->
+      <template v-slot:sideFilter="{ props }">
+        <CheckboxFilter
+          :field="'Side'"
+          :all-values="['Buy', 'Sell']"
+          :display-map="{ Buy: '買入', Sell: '賣出' }"
+          :current-filter="props.filter"
+          @filterchange="(f) => onColumnFilterChange('Side', f)"
+        />
+      </template>
+
+      <!-- Numeric Filter: AvgPrice -->
+      <template v-slot:priceFilter="{ props }">
+        <NumericRangeFilter
+          :field="'AvgPrice'"
+          :current-filter="props.filter"
+          @filterchange="(f) => onColumnFilterChange('AvgPrice', f)"
+        />
+      </template>
+
+      <!-- Numeric Filter: Qty -->
+      <template v-slot:qtyFilter="{ props }">
+        <NumericRangeFilter
+          :field="'Qty'"
+          :current-filter="props.filter"
+          @filterchange="(f) => onColumnFilterChange('Qty', f)"
+        />
+      </template>
+
+      <!-- Date Filter: TrdDate -->
+      <template v-slot:dateFilter="{ props }">
+        <DateRangeFilter
+          :field="'TrdDate'"
+          :current-filter="props.filter"
+          @filterchange="(f) => onColumnFilterChange('TrdDate', f)"
+        />
+      </template>
+    </Grid>
+
+    <!-- View Window -->
+    <ViewOrderWindow
+      :visible="viewWindowVisible"
+      :order="selectedOrder"
+      @close="viewWindowVisible = false"
+    />
+
+    <!-- Delete Window -->
+    <DeleteOrderWindow
+      :visible="deleteWindowVisible"
+      :order="selectedOrder"
+      @close="deleteWindowVisible = false"
+      @deleted="handleDeleted"
+    />
+  </div>
+</template>
+
+<script>
+import { ref, computed, onMounted, onUnmounted } from "vue";
+import { Grid } from "@progress/kendo-vue-grid";
+import { Button as KButton } from "@progress/kendo-vue-buttons";
+import { SvgIcon } from "@progress/kendo-vue-common";
+import {
+  eyeIcon, trashIcon, filterClearIcon, gridIcon,
+} from "@progress/kendo-svg-icons";
+import { orderBy, filterBy } from "@progress/kendo-data-query";
+
+import { mockOrders } from "@/data/mockData.js";
+import ViewOrderWindow from "./ViewOrderWindow.vue";
+import DeleteOrderWindow from "./DeleteOrderWindow.vue";
+import CheckboxFilter from "./filters/CheckboxFilter.vue";
+import NumericRangeFilter from "./filters/NumericRangeFilter.vue";
+import DateRangeFilter from "./filters/DateRangeFilter.vue";
+
+export default {
+  name: "TradeGrid",
+  components: {
+    Grid, KButton, SvgIcon,
+    ViewOrderWindow, DeleteOrderWindow,
+    CheckboxFilter, NumericRangeFilter, DateRangeFilter,
+  },
+  setup() {
+    // ── 資料 ──────────────────────────────────────────────
+    const orders = ref([...mockOrders]);
+    const sort = ref([]);
+    const filter = ref(null);
+    const gridHeight = ref(0);
+    const viewWindowVisible = ref(false);
+    const deleteWindowVisible = ref(false);
+    const selectedOrder = ref(null);
+
+    // ── 計算視窗高度 ──────────────────────────────────────
+    const calculateHeight = () => {
+      gridHeight.value = Math.floor(window.innerHeight * 0.8);
+    };
+    onMounted(() => {
+      calculateHeight();
+      window.addEventListener("resize", calculateHeight);
+    });
+    onUnmounted(() => {
+      window.removeEventListener("resize", calculateHeight);
+    });
+
+    // ── 顯示資料（排序+過濾） ──────────────────────────────
+    const displayData = computed(() => {
+      let data = [...orders.value];
+      if (filter.value) {
+        data = filterBy(data, filter.value);
+      }
+      if (sort.value.length) {
+        data = orderBy(data, sort.value);
+      }
+      return data;
+    });
+
+    // ── 唯一值（供 Checkbox Filter 使用） ─────────────────
+    const uniqueValues = (field) => {
+      return [...new Set(orders.value.map((o) => o[field]))].sort();
+    };
+
+    // ── 格式化日期 ────────────────────────────────────────
+    const formatDate = (date) => {
+      if (!date) return "";
+      return date instanceof Date
+        ? date.toLocaleDateString("zh-TW")
+        : new Date(date).toLocaleDateString("zh-TW");
+    };
+
+    // ── 排序 ──────────────────────────────────────────────
+    const onSortChange = (e) => { sort.value = e.sort; };
+
+    // ── 全域 Filter Change (Kendo 原生) ───────────────────
+    const onFilterChange = (e) => { filter.value = e.filter; };
+
+    // ── 欄位個別 Filter Change (自訂元件) ─────────────────
+    const onColumnFilterChange = (field, newFilters) => {
+      const currentFilters =
+        (filter.value && filter.value.filters) ? [...filter.value.filters] : [];
+
+      // 移除該欄位舊的 filters
+      const otherFilters = currentFilters.filter((f) => {
+        if (f.filters) {
+          // 是群組，檢查第一個子 filter 的 field
+          return f.filters[0]?.field !== field;
+        }
+        return f.field !== field;
+      });
+
+      if (newFilters && newFilters.length > 0) {
+        otherFilters.push({
+          logic: "or",
+          filters: newFilters,
+        });
+      }
+
+      filter.value = otherFilters.length > 0
+        ? { logic: "and", filters: otherFilters }
+        : null;
+    };
+
+    // ── 清除所有篩選 ──────────────────────────────────────
+    const resetFilters = () => {
+      filter.value = null;
+      sort.value = [];
+    };
+
+    // ── 開啟 Window ───────────────────────────────────────
+    const openViewWindow = (item) => {
+      selectedOrder.value = item;
+      viewWindowVisible.value = true;
+    };
+    const openDeleteWindow = (item) => {
+      selectedOrder.value = item;
+      deleteWindowVisible.value = true;
+    };
+
+    // ── 刪除後更新 ────────────────────────────────────────
+    const handleDeleted = (id) => {
+      orders.value = orders.value.filter((o) => o.id !== id);
+      deleteWindowVisible.value = false;
+    };
+
+    // ── 欄位設定 ──────────────────────────────────────────
+    const columns = [
+      {
+        title: "操作",
+        cell: "actionCell",
+        width: "100px",
+        sortable: false,
+        filterable: false,
+        locked: true,
+        headerClassName: "center-header",
+      },
+      {
+        field: "AccNo",
+        title: "客戶帳號",
+        width: "120px",
+        headerClassName: "center-header",
+        filterCell: "accNoFilter",
+      },
+      {
+        field: "AccName",
+        title: "客戶名稱",
+        width: "120px",
+        headerClassName: "center-header",
+        filterCell: "accNameFilter",
+      },
+      {
+        field: "Market",
+        title: "市場",
+        width: "110px",
+        headerClassName: "center-header",
+        filterCell: "marketFilter",
+      },
+      {
+        field: "StkNo",
+        title: "股票代號",
+        width: "110px",
+        headerClassName: "center-header",
+        filterCell: "stkNoFilter",
+      },
+      {
+        field: "Side",
+        title: "買賣方向",
+        width: "110px",
+        headerClassName: "center-header",
+        cell: "sideCell",
+        filterCell: "sideFilter",
+      },
+      {
+        field: "AvgPrice",
+        title: "均價",
+        width: "120px",
+        headerClassName: "center-header",
+        cell: "priceCell",
+        filterCell: "priceFilter",
+        filter: "numeric",
+      },
+      {
+        field: "Qty",
+        title: "成交量",
+        width: "110px",
+        headerClassName: "center-header",
+        cell: "qtyCell",
+        filterCell: "qtyFilter",
+        filter: "numeric",
+      },
+      {
+        field: "TrdCurr",
+        title: "交易幣別",
+        width: "110px",
+        headerClassName: "center-header",
+        filterCell: "trdCurrFilter",
+      },
+      {
+        field: "SettCurr",
+        title: "交割幣別",
+        width: "110px",
+        headerClassName: "center-header",
+        filterCell: "settCurrFilter",
+      },
+      {
+        field: "TrdDate",
+        title: "交易日期",
+        width: "150px",
+        headerClassName: "center-header",
+        cell: "dateCell",
+        filterCell: "dateFilter",
+        filter: "date",
+      },
+    ];
+
+    return {
+      orders, sort, filter, gridHeight,
+      displayData, columns, uniqueValues, formatDate,
+      viewWindowVisible, deleteWindowVisible, selectedOrder,
+      onSortChange, onFilterChange, onColumnFilterChange, resetFilters,
+      openViewWindow, openDeleteWindow, handleDeleted,
+      eyeIcon, trashIcon, filterClearIcon, gridIcon,
+    };
+  },
+};
+</script>
+
+<style>
+/* 欄位表頭置中 */
+.center-header .k-cell-inner,
+.center-header .k-link,
+.center-header {
+  justify-content: center !important;
+  text-align: center !important;
+}
+</style>
+
+<style scoped>
+.trade-grid-wrapper {
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+/* ── Toolbar ── */
+.grid-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  height: 56px;
+  background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
+  flex-shrink: 0;
+}
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.toolbar-icon {
+  color: #fff;
+  width: 22px;
+  height: 22px;
+}
+.grid-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 1px;
+}
+.record-count {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.15);
+  padding: 2px 10px;
+  border-radius: 12px;
+}
+.toolbar-right {
+  display: flex;
+  gap: 8px;
+}
+
+/* ── Action Cell ── */
+.action-cell {
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* ── Side Badge ── */
+.side-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.side-badge.buy {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #a5d6a7;
+}
+.side-badge.sell {
+  background: #ffebee;
+  color: #c62828;
+  border: 1px solid #ef9a9a;
+}
+</style>
