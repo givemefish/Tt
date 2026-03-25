@@ -1,0 +1,119 @@
+<template>
+  <k-window
+    :title="'委託單詳情'"
+    :visible="visible"
+    :width="520"
+    :height="420"
+    :modal="true"
+    @close="$emit('close')"
+  >
+    <div class="order-detail" v-if="order">
+      <div class="detail-grid">
+        <div class="detail-row" v-for="field in fields" :key="field.key">
+          <div class="detail-label">{{ field.label }}</div>
+          <div class="detail-value">{{ formatValue(field.key, order[field.key]) }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="window-footer">
+      <k-button @click="$emit('close')" theme-color="base">
+        <SvgIcon :icon="xIcon" />
+        關閉
+      </k-button>
+    </div>
+  </k-window>
+</template>
+
+<script>
+import { Window as KWindow } from "@progress/kendo-vue-dialogs";
+import { Button as KButton } from "@progress/kendo-vue-buttons";
+import { SvgIcon } from "@progress/kendo-vue-common";
+import { xIcon } from "@progress/kendo-svg-icons";
+
+export default {
+  name: "ViewOrderWindow",
+  components: { KWindow, KButton, SvgIcon },
+  props: {
+    visible: { type: Boolean, default: false },
+    order: { type: Object, default: null },
+  },
+  emits: ["close"],
+  setup() {
+    return { xIcon };
+  },
+  data() {
+    return {
+      fields: [
+        { key: "AccNo",    label: "客戶帳號" },
+        { key: "AccName",  label: "客戶名稱" },
+        { key: "Market",   label: "市場" },
+        { key: "StkNo",    label: "股票代號" },
+        { key: "Side",     label: "買賣方向" },
+        { key: "AvgPrice", label: "均價" },
+        { key: "Qty",      label: "成交量" },
+        { key: "TrdCurr",  label: "交易幣別" },
+        { key: "SettCurr", label: "交割幣別" },
+        { key: "TrdDate",  label: "交易日期" },
+      ],
+    };
+  },
+  methods: {
+    formatValue(key, value) {
+      if (key === "TrdDate" && value instanceof Date) {
+        return value.toLocaleDateString("zh-TW");
+      }
+      if (key === "AvgPrice" && typeof value === "number") {
+        return value.toLocaleString("zh-TW", { minimumFractionDigits: 2 });
+      }
+      if (key === "Qty" && typeof value === "number") {
+        return value.toLocaleString("zh-TW");
+      }
+      if (key === "Side") {
+        return value === "Buy" ? "買入" : "賣出";
+      }
+      return value;
+    },
+  },
+};
+</script>
+
+<style scoped>
+.order-detail {
+  padding: 16px 20px;
+  overflow-y: auto;
+  max-height: 310px;
+}
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 24px;
+}
+.detail-row {
+  display: flex;
+  flex-direction: column;
+  background: #f8f9fa;
+  border-radius: 6px;
+  padding: 10px 14px;
+  border-left: 3px solid #0d6efd;
+}
+.detail-label {
+  font-size: 11px;
+  color: #6c757d;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+.detail-value {
+  font-size: 14px;
+  color: #212529;
+  font-weight: 500;
+}
+.window-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 20px;
+  border-top: 1px solid #dee2e6;
+  background: #fff;
+}
+</style>
