@@ -1,0 +1,247 @@
+CustomDateMenu.vue
+<template>
+  <div class="custom-date-menu">
+    <h4>Filter by Date</h4>
+
+    <div class="filter-row">
+      <label>Operator</label>
+      <DropDownList
+        :data-items="operatorOptions"
+        :text-field="'text'"
+        :data-item-key="'value'"
+        :value="selectedOperator"
+        @change="e => selectedOperator = e.value"
+      />
+    </div>
+
+    <div class="filter-row">
+      <label>Date</label>
+      <DatePicker
+        :value="dateValue"
+        :format="'MM/dd/yyyy'"
+        @change="e => dateValue = e.value"
+      />
+    </div>
+
+    <div class="button-row">
+      <button class="k-button k-primary" @click="applyFilter">Filter</button>
+      <button class="k-button"           @click="clearFilter">Clear</button>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref } from 'vue';
+import { DropDownList } from '@progress/kendo-vue-dropdowns';
+import { DatePicker }   from '@progress/kendo-vue-dateinputs';
+
+// ── Props & Emits ─────────────────────────────────────────────────────────────
+
+const props = defineProps({
+  field: {
+    type:    String,
+    required: true,
+  },
+  onCloseMenu: {
+    type:    Function,
+    default: null,
+  },
+});
+
+const emit = defineEmits(['filterchange', 'clearfilter']);
+
+// ── Static data ───────────────────────────────────────────────────────────────
+
+const operatorOptions = [
+  { text: 'On or After',  value: 'gte' },
+  { text: 'On or Before', value: 'lte' },
+  { text: 'Equals',       value: 'eq'  },
+  { text: 'Not Equals',   value: 'neq' },
+  { text: 'After',        value: 'gt'  },
+  { text: 'Before',       value: 'lt'  },
+];
+
+// ── Reactive state ────────────────────────────────────────────────────────────
+
+const selectedOperator = ref(operatorOptions[0]);
+const dateValue        = ref(null);
+
+// ── Methods ───────────────────────────────────────────────────────────────────
+
+function applyFilter() {
+  if (!dateValue.value) return;
+
+  emit('filterchange', {
+    logic: 'and',
+    filters: [
+      {
+        field:    props.field,
+        operator: selectedOperator.value.value,
+        value:    dateValue.value,
+      },
+    ],
+  });
+
+  props.onCloseMenu?.();
+}
+
+function clearFilter() {
+  selectedOperator.value = operatorOptions[0];
+  dateValue.value        = null;
+
+  emit('clearfilter');
+  props.onCloseMenu?.();
+}
+</script>
+
+<style scoped>
+.custom-date-menu {
+  padding: 14px 16px;
+  min-width: 260px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  font-family: inherit;
+}
+
+.custom-date-menu h4 {
+  margin: 0 0 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.filter-row {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 12px;
+}
+
+.filter-row label {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.filter-row :deep(.k-dropdown),
+.filter-row :deep(.k-datepicker) {
+  width: 100%;
+}
+
+.button-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.k-button {
+  flex: 1;
+  padding: 7px 14px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  cursor: pointer;
+  font-size: 13px;
+  background: #f5f5f5;
+}
+
+.k-button.k-primary {
+  background: #ff6358;
+  color: #fff;
+  border-color: #ff6358;
+}
+
+.k-button:hover {
+  opacity: 0.9;
+}
+</style>
+MyGrid.vue
+<template>
+  <Grid
+    :data-items="filteredData"
+    :columns="columns"
+    :column-menu="true"
+    :filterable="true"
+  >
+    <template v-slot:dateColumnMenu="{ props }">
+      <CustomDateMenu
+        field="birthDate"
+        :on-close-menu="props.onCloseMenu"
+        @filterchange="onFilterChange"
+        @clearfilter="onClearFilter"
+      />
+    </template>
+  </Grid>
+</template>
+
+<script setup>
+import { ref, computed }  from 'vue';
+import { Grid }           from '@progress/kendo-vue-grid';
+import { filterBy }       from '@progress/kendo-data-query';
+import CustomDateMenu     from './CustomDateMenu.vue';
+
+// ── Static data ───────────────────────────────────────────────────────────────
+
+const rawData = [
+  { name: 'Alice', birthDate: new Date('1990-01-15') },
+  { name: 'Bob',   birthDate: new Date('1985-07-22') },
+  { name: 'Carol', birthDate: new Date('1992-11-03') },
+  { name: 'David', birthDate: new Date('1988-03-30') },
+  { name: 'Eve',   birthDate: new Date('1995-06-18') },
+];
+
+const columns = [
+  {
+    field: 'name',
+    title: 'Name',
+  },
+  {
+    field:      'birthDate',
+    title:      'Birth Date',
+    format:     '{0:MM/dd/yyyy}',
+    filter:     'date',
+    sortable:   false,
+    columnMenu: 'dateColumnMenu',
+  },
+];
+
+// ── Reactive state ────────────────────────────────────────────────────────────
+
+const activeFilter = ref(null);
+
+// ── Computed ──────────────────────────────────────────────────────────────────
+
+const filteredData = computed(() =>
+  activeFilter.value ? filterBy(rawData, activeFilter.value) : rawData
+);
+
+// ── Handlers ──────────────────────────────────────────────────────────────────
+
+function onFilterChange(filter) {
+  activeFilter.value = filter;
+}
+
+function onClearFilter() {
+  activeFilter.value = null;
+}
+</script>
+Separation of concerns
+
+CustomDateMenu.vue
+MyGrid.vue
+Owns
+UI, operator list, local date state
+Grid data, active filter state
+Receives
+field, onCloseMenu via props
+Filter object via @filterchange event
+Emits
+filterchange, clearfilter
+—
+Knows about Grid?
+❌ No
+✅ Yes
+Reusable?
+✅ Drop on any date column
+—
+CustomDateMenu is fully decoupled — pass a different field prop to reuse it on any date column in any grid.
