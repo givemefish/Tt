@@ -1,0 +1,160 @@
+<template>
+  <k-window
+    :title="'刪除委託單'"
+    :visible="visible"
+    :width="520"
+    :height="480"
+    :modal="true"
+    @close="$emit('close')"
+  >
+    <div class="order-detail" v-if="order">
+      <!-- 警告橫幅 -->
+      <div class="warning-banner">
+        <SvgIcon :icon="warningTriangleIcon" class="warning-icon" />
+        <span>您即將刪除以下委託單，此操作無法復原，請確認。</span>
+      </div>
+      <div class="detail-grid">
+        <div class="detail-row" v-for="field in fields" :key="field.key">
+          <div class="detail-label">{{ field.label }}</div>
+          <div class="detail-value">{{ formatValue(field.key, order[field.key]) }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="window-footer">
+      <k-button
+        theme-color="error"
+        @click="confirmDelete"
+        :disabled="deleting"
+      >
+        <SvgIcon :icon="trashIcon" />
+        {{ deleting ? "刪除中..." : "確認刪除" }}
+      </k-button>
+      <k-button theme-color="base" @click="$emit('close')">
+        <SvgIcon :icon="xIcon" />
+        取消
+      </k-button>
+    </div>
+  </k-window>
+</template>
+
+<script>
+import { Window as KWindow } from "@progress/kendo-vue-dialogs";
+import { Button as KButton } from "@progress/kendo-vue-buttons";
+import { SvgIcon } from "@progress/kendo-vue-common";
+import { trashIcon, xIcon, warningTriangleIcon } from "@progress/kendo-svg-icons";
+
+export default {
+  name: "DeleteOrderWindow",
+  components: { KWindow, KButton, SvgIcon },
+  props: {
+    visible: { type: Boolean, default: false },
+    order: { type: Object, default: null },
+  },
+  emits: ["close", "deleted"],
+  setup() {
+    return { trashIcon, xIcon, warningTriangleIcon };
+  },
+  data() {
+    return {
+      deleting: false,
+      fields: [
+        { key: "AccNo",    label: "客戶帳號" },
+        { key: "AccName",  label: "客戶名稱" },
+        { key: "Market",   label: "市場" },
+        { key: "StkNo",    label: "股票代號" },
+        { key: "Side",     label: "買賣方向" },
+        { key: "AvgPrice", label: "均價" },
+        { key: "Qty",      label: "成交量" },
+        { key: "TrdCurr",  label: "交易幣別" },
+        { key: "SettCurr", label: "交割幣別" },
+        { key: "TrdDate",  label: "交易日期" },
+      ],
+    };
+  },
+  methods: {
+    formatValue(key, value) {
+      if (key === "TrdDate" && value instanceof Date) {
+        return value.toLocaleDateString("zh-TW");
+      }
+      if (key === "AvgPrice" && typeof value === "number") {
+        return value.toLocaleString("zh-TW", { minimumFractionDigits: 2 });
+      }
+      if (key === "Qty" && typeof value === "number") {
+        return value.toLocaleString("zh-TW");
+      }
+      if (key === "Side") {
+        return value === "Buy" ? "買入" : "賣出";
+      }
+      return value;
+    },
+    async confirmDelete() {
+      this.deleting = true;
+      // 模擬 API call
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      this.deleting = false;
+      this.$emit("deleted", this.order.id);
+    },
+  },
+};
+</script>
+
+<style scoped>
+.order-detail {
+  padding: 16px 20px;
+  overflow-y: auto;
+  max-height: 370px;
+}
+.warning-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  color: #856404;
+  font-size: 13px;
+  font-weight: 500;
+}
+.warning-icon {
+  color: #e65100;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+}
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 24px;
+}
+.detail-row {
+  display: flex;
+  flex-direction: column;
+  background: #fff5f5;
+  border-radius: 6px;
+  padding: 10px 14px;
+  border-left: 3px solid #dc3545;
+}
+.detail-label {
+  font-size: 11px;
+  color: #6c757d;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+.detail-value {
+  font-size: 14px;
+  color: #212529;
+  font-weight: 500;
+}
+.window-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 10px 20px;
+  border-top: 1px solid #dee2e6;
+  background: #fff;
+}
+</style>
